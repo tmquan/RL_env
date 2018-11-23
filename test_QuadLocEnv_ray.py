@@ -21,7 +21,8 @@ def env_creator(env_config={}):
 # env = QuadLocEnv(dataDir='data/', num=20)
 register_env("QuadLocEnv-v0", env_creator)
 
-ray.init()
+# ray.init()
+ray.init(num_cpus=4, num_gpus=0)
 run_experiments({
         "demo": {
             "run": "DQN",

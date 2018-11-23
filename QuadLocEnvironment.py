@@ -266,7 +266,7 @@ class QuadLocEnv(ImageEnv):
     def _get_agent_center (self):
         quad = self.heap[-1][-1]
         agent_center = list(quad.compute_cent())
-        print(agent_center)
+        # print(agent_center)
         return agent_center
 
     def step(self, act=None):
@@ -285,7 +285,8 @@ class QuadLocEnv(ImageEnv):
         rwd = 512-l1_distance(np.array(self._get_label_center()), 
                               np.array(self._get_agent_center()))
         rwd = rwd / 512.0
-        if rwd < 0.95: 
+        # print("Reward", rwd)
+        if rwd < 0.98: 
             rwd = 0
 
         if len(self.heap) > 5:
