@@ -285,12 +285,16 @@ class QuadLocEnv(ImageEnv):
         rwd = 512-l1_distance(np.array(self._get_label_center()), 
                               np.array(self._get_agent_center()))
         rwd = rwd / 512.0
-        # print("Reward", rwd)
-        if rwd < 0.98: 
-            rwd = 0
+        
 
         if len(self.heap) > 5:
             done = True
+        else:
+            rwd = 0
+
+        # print("Reward", rwd)
+        if rwd < 0.98: 
+            rwd = 0
 
         return self.observation_space, rwd, done, info
     
