@@ -3,6 +3,7 @@ from rllab.spaces import Box, Discrete
 from rllab.envs.base import Step
 import numpy as np
 import gym
+from gym.spaces import Discrete
 import abc
 import glob, skimage.io, cv2, os
 from natsort import natsorted
@@ -96,6 +97,8 @@ class ImageEnv(CustomEnv):
         return (0.0, 1.0)  
 
     def reset(self):
+        # print(self.imageFiles[:10])
+        # print(self.labelFiles[:10])
         rand_idx = np.random.randint(0, len(self.imageFiles))
         self.image = cv2.imread(self.imageFiles[rand_idx], cv2.IMREAD_GRAYSCALE).astype(np.uint8)
         self.label = cv2.imread(self.labelFiles[rand_idx], cv2.IMREAD_GRAYSCALE).astype(np.uint8)
@@ -127,23 +130,23 @@ class Quad(object):
         self.val        = None
 
     def is_leaf(self, leaf_size=LEAF_SIZE):
-        l, t, r, b = self.box
+        l, t, r, b = int(self.box[0]), int(self.box[1]), int(self.box[2]), int(self.box[3])
         return int(r - l <= leaf_size or b - t <= leaf_size)
     
     def is_last(self, leaf_size=LEAF_SIZE):
-        l, t, r, b = self.box
+        l, t, r, b = int(self.box[0]), int(self.box[1]), int(self.box[2]), int(self.box[3])
         return int(r - l == leaf_size or b - t == leaf_size)
     
     def compute_cent(self):
-        l, t, r, b = self.box
+        l, t, r, b = int(self.box[0]), int(self.box[1]), int(self.box[2]), int(self.box[3])
         return ((b+t)/2, (l+r)/2)
 
     def compute_area(self):
-        l, t, r, b = self.box
+        l, t, r, b = int(self.box[0]), int(self.box[1]), int(self.box[2]), int(self.box[3])
         return (r - l) * (b - t)
     
     def split(self):
-        l, t, r, b = self.box
+        l, t, r, b = int(self.box[0]), int(self.box[1]), int(self.box[2]), int(self.box[3])
         lr = l + (r - l) / 2
         tb = t + (b - t) / 2
         depth = self.depth + 1
@@ -192,7 +195,7 @@ class QuadLocEnv(ImageEnv):
 
         if self.heap:
             quad = self.heap[-1][-1]
-            l, t, r, b = quad.box
+            l, t, r, b = int(quad.box[0]), int(quad.box[1]), int(quad.box[2]), int(quad.box[3])
             est[t:b, l:r] = 255
         else:
             l, t, r, b = 0, 0, DIMX, DIMY
@@ -240,7 +243,7 @@ class QuadLocEnv(ImageEnv):
                 for idx, child in enumerate(children):
                     if idx==act:
                         child.val = act
-                        print('Box', child.box)
+                        # print('Box', child.box)
                         self.push(child)
                     else:
                         pass
@@ -255,7 +258,8 @@ class QuadLocEnv(ImageEnv):
         ske = skeletonize (lbl == 255)
         index_list = np.where (ske)
         index_mean = (np.mean (index_list[0]), np.mean (index_list[1]))
-        index_zip = np.array (zip (index_list[0], index_list[1]))
+        index_zip = np.array (list(zip (index_list[0], index_list[1])))
+        # print(index_mean, index_zip)
         centroid_id = np.argmin (np.sum ((index_zip - index_mean) ** 2, axis=1))
         return list(index_zip [centroid_id])
 
@@ -308,7 +312,7 @@ class QuadLocEnv(ImageEnv):
 
 
 if __name__ == '__main__':
-    env = QuadLocEnv(dataDir='/home/Pearl/quantm/CVPR18/segmentation/data/train/', num=20)
+    env = QuadLocEnv(dataDir='data/', num=20)
     num = env.action_space.n
     print("Action:", num)
 
