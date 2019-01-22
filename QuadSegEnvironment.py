@@ -172,7 +172,7 @@ class Quad(object):
 
 DIMY = 256
 DIMX = 256
-class QuadLocEnv(ImageEnv):
+class QuadSegEnv(ImageEnv):
     def __init__(self, 
         dataDir=None, 
         num=10, 
@@ -180,26 +180,42 @@ class QuadLocEnv(ImageEnv):
         DIMX=256, 
         env_config=None):
 
-        super(QuadLocEnv, self).__init__(dataDir, num, DIMY, DIMX)
+        super(QuadSegEnv, self).__init__(dataDir, num, DIMY, DIMX)
         self.heap = None
         self.root = None 
         
     @property
     def action_space(self):
-        return Discrete(4)
+        return Discrete(3)
 
     @property
     def observation_space(self):
         img = self.image.copy()
-        est = np.zeros_like(img)
+        est = 64*np.ones_like(img) 
 
+       
+
+        
         if self.heap:
-            quad = self.heap[-1][-1]
+             # split
+            for quad in self.root.get_leaf_nodes(max_depth=None):
+                l, t, r, b = quad.box
+                l, t, r, b = int(quad.box[0]), int(quad.box[1]), int(quad.box[2]), int(quad.box[3])
+                if quad.val == 2:
+                    est[t:b, l:r] = 64 # 64 for last value (split = 2)
+                elif quad.val == 0:
+                    est[t:b, l:r] = 0 # 64 for last value (split = 2)
+                elif quad.val == 1:
+                    est[t:b, l:r] = 255 # 64 for last value (split = 2)
+
+            # Next active quad    
+            quad = self.heap[0][-1]
             l, t, r, b = int(quad.box[0]), int(quad.box[1]), int(quad.box[2]), int(quad.box[3])
-            est[t:b, l:r] = 255
-        else:
-            l, t, r, b = 0, 0, DIMX, DIMY
-            est[t:b, l:r] = 255
+            est[t:b, l:r] = 128 # 128 for last value (split = 2)
+
+        # else:
+        #     l, t, r, b = 0, 0, DIMX, DIMY
+        #     est[t:b, l:r] = 128 # 128 for last value (split = 2)
 
         self.estim = est
         obs = np.stack((self.image, self.estim), axis=2)
@@ -233,20 +249,24 @@ class QuadLocEnv(ImageEnv):
     def split(self, act):
         if self.heap:
             # print('ifsplit')
-            quad = self.heap[-1][-1]
+            # quad = self.heap[-1][-1]
+            quad = self.pop(act)
+            # quad.val = act
             if quad.is_last():
                 # self.push(quad)
                 quad.val = 1 # No need to push it again
             else:
                 children = quad.split()
-                # for child in children:
-                for idx, child in enumerate(children):
-                    if idx==act:
+                for child in children:
+                # for idx, child in enumerate(children):
+                    # if idx==act:
                         child.val = act
                         # print('Box', child.box)
                         self.push(child)
-                    else:
-                        pass
+                    # else:
+                        # pass
+        else:
+            return None
 
            
     def _get_label_center (self):
@@ -274,34 +294,54 @@ class QuadLocEnv(ImageEnv):
         done = False
         info = {'ale.lives' : 0}
         
-        quad = self.split(act)
+        # quad = self.split(act)
 
-        # Calculate reward
-        def l2_distance(x,y):
-            return math.sqrt(sum(math.pow(a-b,2) for a, b in zip(x, y)))
-        def l1_distance(x,y):
-            return sum(abs(a-b) for a, b in zip(x, y))
+                # # Calculate reward
+                # def l2_distance(x,y):
+                #     return math.sqrt(sum(math.pow(a-b,2) for a, b in zip(x, y)))
+                # def l1_distance(x,y):
+                #     return sum(abs(a-b) for a, b in zip(x, y))
 
-        rwd = 512-l1_distance(np.array(self._get_label_center()), 
-                              np.array(self._get_agent_center()))
-        rwd = rwd / 512.0
-        
+                # rwd = 512-l1_distance(np.array(self._get_label_center()), 
+                #                       np.array(self._get_agent_center()))
+                # rwd = rwd / 512.0
+                
 
-        if len(self.heap) > 5:
-            done = True
-        # else:
-        #     rwd = 0
+                # if len(self.heap) > 5:
+                #     done = True
+                # # else:
+                # #     rwd = 0
 
-        # print("Reward", rwd)
-        if rwd < 0.98 or done == False: 
-            rwd = 0
+                # # print("Reward", rwd)
+                # if rwd < 0.98 or done == False: 
+                #     rwd = 0
+        if act==2:
+            self.split(act)
+        else:
+            self.pop(act)
 
+        done = not self.heap
+        if done:
+            from sklearn.metrics import mean_absolute_error
+            lbl = self.label
+            est = self.estim
+            mae = 1.0 - mean_absolute_error(lbl.flatten()/255.0, 
+                                            est.flatten()/255.0)
+
+            def dice_metrics(gt, seg):
+                dice = 0
+                for k in np.unique(gt)[1:]: # No background
+                    dice += np.sum(seg[gt==k]==k)*2.0 / (np.sum(seg[seg==k]==k) + np.sum(gt[gt==k]==k))
+                return dice
+            dice = dice_metrics(lbl.flatten()/255.0, 
+                                est.flatten()/255.0)
+            rwd  = dice #(mae + dice) / 2.0
         return self.observation_space, rwd, done, info
     
 
     
     def reset(self):
-        super(QuadLocEnv, self).reset()
+        super(QuadSegEnv, self).reset()
         self.label[self.label>=128] = 255
         self.label[self.label<128] = 0
         self.image = self.image.astype(np.uint8)
@@ -310,14 +350,16 @@ class QuadLocEnv(ImageEnv):
         self.estim = np.zeros_like(self.image)
         self.heap = deque([])
         self.root = Quad(self, (0, 0, self.DIMX, self.DIMY), 0)
+        # self.root.val = 2
         self.push(self.root)
+        # self.split(act=2)
         # for k in range(21): #85# 4^0 + 4^1 + 4^2 + 4^3 
         #     self.split(act=2)
         return self.observation_space
 
 
 if __name__ == '__main__':
-    env = QuadLocEnv(dataDir='data/', num=20)
+    env = QuadSegEnv(dataDir='data/', num=20)
     num = env.action_space.n
     print("Action:", num)
 
@@ -327,7 +369,7 @@ if __name__ == '__main__':
     #for i in range(5):
     while True:
         if isFirst:
-            act = int(cv2.waitKey()-ord('0')) #act = 2
+            act = 2 #int(cv2.waitKey()-ord('0')) #act = 2
             isFirst = False
         else:
             act = int(cv2.waitKey()-ord('0'))

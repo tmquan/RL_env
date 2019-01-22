@@ -16,9 +16,20 @@ from ray.rllib.models.misc import flatten, normc_initializer
 from tensorpack import *
 NUM_ACTIONS = 4
 
-# @ray.remote
 class ConvNet2D(Model):
     def _build_layers(self, image, num_outputs=NUM_ACTIONS, options=None):
+        # print("num_outputs: ", num_outputs)
+        # with tf.name_scope("1DConv"):
+        #     last_layer = tf.transpose(inputs, [0, 2, 1])
+        #     last_layer = tf.layers.conv1d(last_layer, 8, 2, activation=tf.nn.relu, name="conv1d_1")
+        #     last_layer = tf.layers.conv1d(last_layer, 16, 2, activation=tf.nn.relu, name="conv1d_2")
+
+        #     last_layer = flatten(last_layer)
+        #     last_layer = tf.layers.dense(last_layer, 64, activation=tf.nn.relu, name="dense1")
+        #     last_layer = tf.layers.dense(last_layer, 64, activation=tf.nn.relu, name="dense2")
+
+        #     output = tf.layers.dense(last_layer, num_outputs, activation=None, name="dense_output")
+        #     return output, last_layer
         image = tf.cast(image, tf.float32) / 255.0
         with argscope(Conv2D, activation=tf.nn.relu):
             l = Conv2D('conv0', image, 32, 5)
@@ -33,11 +44,9 @@ class ConvNet2D(Model):
         l = PReLU('prelu', l)
         logits = FullyConnected('fc-pi', l, NUM_ACTIONS)    # unnormalized policy
         value = FullyConnected('fc-v', l, 1)
-        return logits, l
-
+        return value, logits #logits, value
 
 ModelCatalog.register_custom_model("ConvNet2D", ConvNet2D)
-
 
 
 
@@ -66,7 +75,7 @@ register_env("QuadLocEnv-v0", env_creator)
 
 experiment_spec = {
     "custom_env": {
-        "run": "A3C",
+        "run": "PPO",
         "env": "QuadLocEnv-v0",
 #             "restore": checkpoint,
         "config": {
@@ -75,42 +84,10 @@ experiment_spec = {
             },
         },
            "trial_resources":{
-               "cpu": 24,
+               "cpu": 10,
                "gpu": 1,
            },
         "checkpoint_freq": 10,
     },
 }
-# tune.run_experiments(experiment_spec)
-from ray.rllib.agents.a3c import A3CAgent, DEFAULT_CONFIG
-config = DEFAULT_CONFIG.copy()
-config["model"]["custom_model"] = "ConvNet2D"
-test_agent = A3CAgent(config, 'QuadLocEnv-v0')
-checkpoint_path = '/home/tmquan/ray_results/custom_env/A3C_QuadLocEnv-v0_0_2018-11-28_23-09-49adscnqmu/checkpoint_60/checkpoint-60'
-test_agent.restore(checkpoint_path)
-
-import cv2
-env = QuadLocEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
-num = env.action_space.n
-state = env.reset()
-done = False
-cumulative_reward = 0
-
-while True:
-    if done:
-        state = env.reset()
-        done = False
-        cumulative_reward = 0
-    action = test_agent.compute_action(state)
-    state, reward, done, _ = env.step(action)
-    
-    vis = env.render()
-    print(action, done)
-    cv2.imshow('0', vis[...,0])
-    cv2.imshow('1', vis[...,1])
-    cv2.imshow('2', vis[...,2])
-    cv2.imshow('n', vis)
-    cv2.waitKey()
-    cumulative_reward += reward
-
-    print(cumulative_reward)
+tune.run_experiments(experiment_spec)

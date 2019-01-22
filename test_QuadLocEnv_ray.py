@@ -12,7 +12,7 @@ from ray.tune import run_experiments
 from ray.rllib.agents import ppo
 
 def env_creator(env_config={}):
-    env = QuadLocEnv(dataDir='/Users/tmquan/RL_env/data/', num=20)
+    env = QuadLocEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
     num = env.action_space.n
     # print("Action:", num)
     env.reset()
@@ -22,16 +22,16 @@ def env_creator(env_config={}):
 register_env("QuadLocEnv-v0", env_creator)
 
 # ray.init()
-ray.init(num_cpus=4, num_gpus=0)
+ray.init(num_cpus=4, num_gpus=1)
 run_experiments({
         "demo": {
-            "run": "DQN",
+            "run": "A3C",
             "env": "QuadLocEnv-v0",
-       		"config": {
-                "env_config": {
-                    "corridor_length": 5,
-                },
-            },
+       		# "config": {
+         #        "env_config": {
+         #            "version": 0.1,
+         #        },
+         #    },
         },
     })
 # trainer = ppo.PPOAgent(

@@ -81,36 +81,4 @@ experiment_spec = {
         "checkpoint_freq": 10,
     },
 }
-# tune.run_experiments(experiment_spec)
-from ray.rllib.agents.a3c import A3CAgent, DEFAULT_CONFIG
-config = DEFAULT_CONFIG.copy()
-config["model"]["custom_model"] = "ConvNet2D"
-test_agent = A3CAgent(config, 'QuadLocEnv-v0')
-checkpoint_path = '/home/tmquan/ray_results/custom_env/A3C_QuadLocEnv-v0_0_2018-11-28_23-09-49adscnqmu/checkpoint_60/checkpoint-60'
-test_agent.restore(checkpoint_path)
-
-import cv2
-env = QuadLocEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
-num = env.action_space.n
-state = env.reset()
-done = False
-cumulative_reward = 0
-
-while True:
-    if done:
-        state = env.reset()
-        done = False
-        cumulative_reward = 0
-    action = test_agent.compute_action(state)
-    state, reward, done, _ = env.step(action)
-    
-    vis = env.render()
-    print(action, done)
-    cv2.imshow('0', vis[...,0])
-    cv2.imshow('1', vis[...,1])
-    cv2.imshow('2', vis[...,2])
-    cv2.imshow('n', vis)
-    cv2.waitKey()
-    cumulative_reward += reward
-
-    print(cumulative_reward)
+tune.run_experiments(experiment_spec)

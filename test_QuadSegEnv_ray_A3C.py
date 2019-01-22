@@ -14,7 +14,7 @@ from ray.rllib.models.misc import flatten, normc_initializer
 
 
 from tensorpack import *
-NUM_ACTIONS = 4
+NUM_ACTIONS = 3
 
 # @ray.remote
 class ConvNet2D(Model):
@@ -42,7 +42,7 @@ ModelCatalog.register_custom_model("ConvNet2D", ConvNet2D)
 
 
 #############
-from QuadLocEnvironment import *
+from QuadSegEnvironment import *
 
 import ray
 from ray.tune.registry import register_env
@@ -50,24 +50,24 @@ from ray.tune import run_experiments
 from ray.rllib.agents import ppo
 
 def env_creator(env_config={}):
-    env = QuadLocEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
+    env = QuadSegEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
     num = env.action_space.n
     # print("Action:", num)
     env.reset()
     return env
 
-register_env("QuadLocEnv-v0", env_creator)
+register_env("QuadSegEnv-v0", env_creator)
 
 
 
 ############
 ray.init(use_raylet=True, redis_password=os.urandom(128).hex())
-register_env("QuadLocEnv-v0", env_creator)
+register_env("QuadSegEnv-v0", env_creator)
 
 experiment_spec = {
     "custom_env": {
         "run": "A3C",
-        "env": "QuadLocEnv-v0",
+        "env": "QuadSegEnv-v0",
 #             "restore": checkpoint,
         "config": {
             "model": {
@@ -85,12 +85,12 @@ experiment_spec = {
 from ray.rllib.agents.a3c import A3CAgent, DEFAULT_CONFIG
 config = DEFAULT_CONFIG.copy()
 config["model"]["custom_model"] = "ConvNet2D"
-test_agent = A3CAgent(config, 'QuadLocEnv-v0')
-checkpoint_path = '/home/tmquan/ray_results/custom_env/A3C_QuadLocEnv-v0_0_2018-11-28_23-09-49adscnqmu/checkpoint_60/checkpoint-60'
+test_agent = A3CAgent(config, 'QuadSegEnv-v0')
+checkpoint_path = '/home/tmquan/ray_results/custom_env/A3C_QuadSegEnv-v0_0_2018-11-29_00-25-31u974zzci/checkpoint_20/checkpoint-20'
 test_agent.restore(checkpoint_path)
 
 import cv2
-env = QuadLocEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
+env = QuadSegEnv(dataDir='/home/Pearl/quantm/RL_env/data/', num=500)
 num = env.action_space.n
 state = env.reset()
 done = False
